@@ -1,0 +1,23 @@
+name: probe
+on:
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Entorno ARM (KVM / binder)
+        run: |
+          echo "=== CPU / kernel ==="
+          uname -a
+          echo "arch: $(uname -m)   cpus: $(nproc)"
+          free -h
+          echo "=== KVM (para el emulador Android) ==="
+          ls -la /dev/kvm 2>&1 || echo "NO hay /dev/kvm"
+          echo "=== binder (para Redroid) ==="
+          sudo modprobe binder_linux 2>&1 && echo "binder_linux OK (ya presente)" || echo "binder_linux no carga directo"
+          echo "--- intento con modules-extra ---"
+          sudo apt-get update -qq >/dev/null 2>&1
+          sudo apt-get install -y -qq "linux-modules-extra-$(uname -r)" 2>&1 | tail -1 || echo "no hay modules-extra para este kernel"
+          sudo modprobe binder_linux devices="binder,hwbinder,vndbinder" 2>&1 && echo "binder_linux OK tras modules-extra" || echo "binder sigue sin cargar"
+          ls -la /dev/binder* 2>&1 || echo "sin dispositivos binder"
+          find /lib/modules/$(uname -r) -name 'binder*' -o -name 'ashmem*' 2>/dev/null || echo "sin ficheros de modulo binder/ashmem"
