@@ -1,0 +1,30 @@
+name: redroid2
+on:
+  workflow_dispatch:
+jobs:
+  r:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    steps:
+      - name: Diagnostico Redroid
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq "linux-modules-extra-$(uname -r)" android-tools-adb
+          sudo modprobe binder_linux devices="binder,hwbinder,vndbinder" || sudo modprobe binder_linux
+          echo "=== modulos binder ==="; lsmod | grep -i binder || echo "ninguno"
+          echo "=== /dev/binder* ==="; ls -la /dev/binder* 2>&1 || echo "sin /dev/binder*"
+          echo "=== montando binderfs ==="
+          sudo mkdir -p /dev/binderfs
+          sudo mount -t binder none /dev/binderfs 2>&1 && echo "binderfs montado" || echo "fallo binderfs"
+          ls -la /dev/binderfs 2>&1 || true
+          echo "=== arrancando redroid (sin args extra) ==="
+          docker run -d --rm --privileged --name redroid -p 5555:5555 redroid/redroid:11.0.0-latest
+          sleep 60
+          echo "=== docker ps ==="; docker ps -a
+          echo "=== ===== LOGS DE REDROID ===== ==="
+          docker logs redroid 2>&1 | tail -80
+          echo "=== getprop (con -s) ==="
+          adb connect localhost:5555 >/dev/null 2>&1 || true
+          sleep 5
+          adb -s localhost:5555 shell getprop sys.boot_completed 2>&1 || echo "adb shell fallo"
+          adb -s localhost:5555 shell getprop ro.product.cpu.abi 2>&1 || true
